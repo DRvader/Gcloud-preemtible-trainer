@@ -1,15 +1,19 @@
 gsutil mb gs://job-storage
-gsutil redis/redis_master.py gs://job-storage/redis/
-gsutil redis/redis.conf gs://job-storage/redis/
-gsutil redis/config.json gs://job-storage/redis/
+gsutil cp redis/redis_master.py gs://job-storage/redis/
+gsutil cp redis/redis.conf gs://job-storage/redis/
+gsutil cp redis/config.json gs://job-storage/redis/
 
-gcloud beta compute instances delete redis-master
+gcloud beta compute instances delete redis-master --zone=us-east4-c
 gcloud beta compute instance-groups managed delete tf-trainer-preemptible --region=us-east4
 gcloud compute instance-templates delete tf-trainer-preemptible
 
 gcloud beta compute instances create redis-master --zone=us-east4-c \
 --machine-type=f1-micro --metadata-from-file startup-script=redis/redis_startup.sh
 --image=debian-9-stretch-v20181113 --image-project=debian-cloud --boot-disk-size=10GB
+
+gcloud compute firewall-rules create default-allow-https \
+--direction=INGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:443 \
+--source-ranges=0.0.0.0/0 --target-tags=https-server
 
 gcloud beta compute instance-templates create tf-trainer-preemptible \
 --machine-type=n1-highmem-2 --no-restart-on-failure --maintenance-policy=TERMINATE --preemptible \

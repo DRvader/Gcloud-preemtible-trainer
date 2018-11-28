@@ -8,7 +8,7 @@ import time
 import subprocess
 
 config = json.load(open('config.json'))
-redis_config = json.load(open('../redis/config.json'))
+redis_config = json.load(open('redis/config.json'))
 
 def enqueue_output(out, queue):
     for line in iter(out.readline, b''):
