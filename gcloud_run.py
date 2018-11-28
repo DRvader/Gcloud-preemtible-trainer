@@ -1,7 +1,6 @@
 import argparse
 from google.cloud import firestore
 from google.cloud import storage
-from google.cloud import pubsub_v1
 import json
 import os
 import requests

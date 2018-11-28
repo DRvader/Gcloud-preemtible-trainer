@@ -1,5 +1,4 @@
 from google.cloud import firestore
-from google.cloud import pubsub_v1
 from google.cloud import storage
 import json
 import os
@@ -9,6 +8,7 @@ import time
 import subprocess
 
 config = json.load(open('config.json'))
+redis_config = json.load(open('../redis/config.json'))
 
 def enqueue_output(out, queue):
     for line in iter(out.readline, b''):
@@ -216,11 +216,9 @@ def handle_message(message):
 if __name__ == '__main__':
     client = pubsub.SubscriberClient()
     while True:
-        for sub in config['subscriptions']:
-            subscription = client.subscription_path(config['project_id'], sub)
-            response = client.pull(subscription, max_messages=1, return_immediatly=True)
-            while len(response) > 0:
-                for message in response.recieved_messages:
-                    handle_message(message)
-                response = client.pull(subscription, max_messages=1, return_immediatly=True)
-        time.sleep(60)
+        for queue in config['worker_queues']:
+            response = request.put('{}/queue/{}/pop'.format(config['job_queue_address'], queue),
+                                   headers={'auth_key': redis_config['redis_auth_key']})
+            job = json.loads(response.text)
+            handle_message(job['payload'])
+        time.sleep(1)
