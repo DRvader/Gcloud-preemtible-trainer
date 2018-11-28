@@ -1,3 +1,5 @@
+#!/usr/bin/bash
+
 cd ~
 
 curl -L  https://github.com/DRvader/Gcloud-preemtible-trainer/releases/latest | grep "tar.gz" | head -1 \
@@ -7,4 +9,4 @@ mkdir worker-scripts
 tar -xvf tf-trainer-latest.tar.gz -C worker-scripts
 cd worker-scripts
 mv */* .
-python worker-scripts/worker_startup.py
+python worker-scripts/worker.py

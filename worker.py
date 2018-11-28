@@ -1,18 +1,14 @@
 from google.cloud import firestore
 from google.cloud import pubsub_v1
 from google.cloud import storage
+import json
 import os
 from queue import Queue, Empty
 from threading  import Thread
 import time
 import subprocess
 
-PROJECT = 'Preemptible-training'
-BUCKET = 'wc-personal-test'
-PENDING_SUBSCRIPTION = 'tf-trainer-jobs'
-PREEMPTED_SUBSCRIPTION = 'preempted-tf-trainer-jobs'
-ACK_DEADLINE = 120
-ACK_MIN = 30
+config = json.load(open('config.json'))
 
 def enqueue_output(out, queue):
     for line in iter(out.readline, b''):
@@ -148,13 +144,18 @@ def run_python_script(main_module, code_location, arguments=[], packages=[], env
     return package_process, process.returncode
 
 def check_message(message, job_ref):
-    return job_ref.get(u'state') != u'RUNNING'
+    # return job_ref.get(u'state') != u'RUNNING'
+    return True
 
 def create_job(message, job_ref):
     job_ref.update({u'state': u'RUNNING'})
 
     with open('~/ack_id', 'w') as file:
         file.write(message._ack_id)
+        file.write('\n')
+        file.write(config.subscriptions[0])
+        file.write('\n')
+        file.write(job_ref._document_path())
 
 def run_job(message, job_ref):
     arguments = job_ref.get(u'arguments')
@@ -170,7 +171,7 @@ def run_job(message, job_ref):
                     shell=True)
 
     class ACKDEADLINE_EXTEND():
-        def __init__(self, message, ack_deadline=ACK_DEADLINE, ack_min=ACK_MIN):
+        def __init__(self, message, ack_deadline=config.ack_deadline, ack_min=config.ack_min):
             self.first_call = True
             self.message = message
             self.ack_deadline = ack_deadline
@@ -214,11 +215,12 @@ def handle_message(message):
 
 if __name__ == '__main__':
     client = pubsub.SubscriberClient()
-    subscription = client.subscription_path(PROJECT, PENDING_SUBSCRIPTION)
     while True:
-        response = client.pull(pending_subscription, max_messages=1, return_immediatly=True)
-        if len(response) > 0:
-            for message in response.recieved_messages:
-                handle_message(message)
-        else:
-            time.sleep(60)
+        for sub in config['subscriptions']:
+            subscription = client.subscription_path(config['project_id'], sub)
+            response = client.pull(subscription, max_messages=1, return_immediatly=True)
+            while len(response) > 0:
+                for message in response.recieved_messages:
+                    handle_message(message)
+                response = client.pull(subscription, max_messages=1, return_immediatly=True)
+        time.sleep(60)

@@ -4,12 +4,14 @@ from google.cloud import storage
 from google.cloud import pubsub_v1
 import json
 import os
+import requests
 from shutil import make_archive
 import tempfile
 from worker import run_python_script
 import zipfile
 
 config = json.load(open('config.json'))
+redis_config = json.load(open('redis/config.json'))
 
 def upload_blob(bucket, source_file, destination_blob_name, from_file=True):
     """Uploads a file to the bucket."""
@@ -151,7 +153,6 @@ if __name__ == '__main__':
         print(process[1])
     else:
         print("Submitted to Queue")
-        publisher = pubsub_v1.PublisherClient()
-        topic_name = 'projects/{project_id}/topics/{topic}'.format(project_id=config['project_id'],
-                                                                   topic=config['topic_name'])
-        publisher.publish(topic_name, '/'.join([results.project_name, results.experiment_name, version_number]).encode())
+        r = requests.put('{}/queue/tf-trainer-preemptible/push'.format(config['job_queue_address'],
+                         data={'payload':'/'.join([results.project_name, results.experiment_name, version_number])},
+                         headers={'auth_key': redis_config['redis_auth_key']})
