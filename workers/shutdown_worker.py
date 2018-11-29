@@ -8,7 +8,7 @@ import requests
 def main():
     if os.isfile(os.path.join('~/job_id')):
         config = json.load(open('../config.json'))
-        redis_config = json.load(open('../redis/config.json'))
+        redis_config = json.load(open('../jobServer/config.json'))
 
         with open('~/job_id') as file:
             job_id = file.readline().strip()

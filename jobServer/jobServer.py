@@ -28,8 +28,6 @@ s = sched.scheduler(time.time, time.sleep)
 if db.exists('job_id') == 0:
     db.set('job_id', 0)
 
-s.enter(600, 1, check_heartbeat_status)
-
 def refresh_config():
     global config
     config = json.load(open(config.json))
@@ -63,6 +61,8 @@ def check_heartbeat_status():
         db.rem('reserved:running', job_id)
         add_job(job['queue'], job['payload'], True, job['id'])
     s.enter(600, 1, check_heartbeat_status)
+
+s.enter(600, 1, check_heartbeat_status)
 
 def check_auth(username, password):
     """This function is called to check if a username /
@@ -171,4 +171,4 @@ def complete_job(job_id):
     return Response(status=200)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()

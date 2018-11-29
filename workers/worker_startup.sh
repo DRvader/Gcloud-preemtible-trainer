@@ -9,4 +9,4 @@ mkdir worker-scripts
 tar -xvf tf-trainer-latest.tar.gz -C worker-scripts
 cd worker-scripts
 mv */* .
-python worker-scripts/worker.py
+python worker-scripts/workers/worker.py

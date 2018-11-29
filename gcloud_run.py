@@ -6,11 +6,11 @@ import os
 import requests
 from shutil import make_archive
 import tempfile
-from worker import run_python_script
+from workers.worker import run_python_script
 import zipfile
 
 config = json.load(open('config.json'))
-redis_config = json.load(open('redis/config.json'))
+redis_config = json.load(open('jobServer/config.json'))
 
 def upload_blob(bucket, source_file, destination_blob_name, from_file=True):
     """Uploads a file to the bucket."""

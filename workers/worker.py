@@ -3,12 +3,20 @@ from google.cloud import storage
 import json
 import os
 from queue import Queue, Empty
+import requests
 from threading  import Thread
 import time
 import subprocess
 
-config = json.load(open('config.json'))
-redis_config = json.load(open('redis/config.json'))
+try:
+    config = json.load(open('../config.json'))
+except:
+    config = json.load(open('config.json'))
+
+try:
+    redis_config = json.load(open('../jobServer/config.json'))
+except:
+    redis_config = json.load(open('jobServer/config.json'))
 
 def enqueue_output(out, queue):
     for line in iter(out.readline, b''):
@@ -150,12 +158,8 @@ def check_message(message, job_ref):
 def create_job(message, job_ref):
     job_ref.update({u'state': u'RUNNING'})
 
-    with open('~/ack_id', 'w') as file:
-        file.write(message._ack_id)
-        file.write('\n')
-        file.write(config.subscriptions[0])
-        file.write('\n')
-        file.write(job_ref._document_path())
+    with open('~/job_id', 'w') as file:
+        file.write(message['id'])
 
 def run_job(message, job_ref):
     arguments = job_ref.get(u'arguments')
@@ -194,8 +198,9 @@ def run_job(message, job_ref):
 
 def teardown_job(message, job_ref):
     job_ref.update({u'state': u'COMPLETED'})
-    os.remove('~/ack_id')
-    message.ack()
+    os.remove('~/job_id')
+    requests.put('{}/job/{}/completed'.format(config['job_queue_address'], message['id']),
+                 headers={'auth_key': redis_config['redis_auth_key']})
 
 def handle_message(message):
     db = firestore.Client()
@@ -204,7 +209,6 @@ def handle_message(message):
     job_ref = db.document(database_job_location)
 
     if not check_message(message, job_ref):
-        message.ack()
         return
 
     create_job(message, job_ref)
@@ -217,8 +221,8 @@ if __name__ == '__main__':
     client = pubsub.SubscriberClient()
     while True:
         for queue in config['worker_queues']:
-            response = request.put('{}/queue/{}/pop'.format(config['job_queue_address'], queue),
-                                   headers={'auth_key': redis_config['redis_auth_key']})
+            response = requests.put('{}/queue/{}/pop'.format(config['job_queue_address'], queue),
+                                    headers={'auth_key': redis_config['redis_auth_key']})
             job = json.loads(response.text)
             handle_message(job['payload'])
         time.sleep(1)
