@@ -1,4 +1,4 @@
-from jobServer_redisUtils import db, readd_to_queue
+from jobServer_redisUtils import db, readd_to_queue, convert_bytesToString
 import json
 import time
 import sys
@@ -6,7 +6,7 @@ import sys
 def check_heartbeat_status():
     unresponsive_jobs = db.sdiff('reserved:running', 'reserved:heartbeat')
     print("{} unresponsive jobs".format(len(unresponsive_jobs)))
-    for job_id in unresponsive_jobs:
+    for job_id in convert_bytesToString(unresponsive_jobs):
         readd_to_queue(job_id)
         print("re-added {}".format(job_id))
 

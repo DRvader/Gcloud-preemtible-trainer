@@ -3,19 +3,17 @@ import redis
 db = redis.Redis('localhost') #connect to server
 
 def convert_bytesToString(data):
-    """ Redis returns byte strings, these must first be
-        converted to strings to be parsed as json data.
-        A dict will never be returned so only have to be
-        concered with lists and tuples. """
-
     if isinstance(data, list):
         return [convert_bytesToString(nested_data) for nested_data in data]
 
-    if isinstance(data, tuple):
-        return tuple(convert_bytesToString(nested_data) for nested_data in data)
+    if isinstance(data, set):
+        return set(convert_bytesToString(nested_data) for nested_data in data)
 
     if isinstance(data, dict):
         return {convert_bytesToString(k):convert_bytesToString(v) for k,v in data.items()}
+
+    if isinstance(data, tuple):
+        return tuple(convert_bytesToString(nested_data) for nested_data in data)
 
     try:
         return data.decode()
@@ -49,7 +47,7 @@ def add_to_queue(queue_name, payload, high_priority, job_id=None):
     db.hset('reserved:job_map', job_id, job)
 
 def readd_to_queue(job_id):
-    job = json.loads(db.hget('reserved:job_map', job_id))
+    job = json.loads(convert_bytesToString(db.hget('reserved:job_map', job_id)))
     db.srem('reserved:running', job_id)
     db.incrby('size:' + job['queue'], -1) # it will immediatly incremented
     add_to_queue(job['queue'], job['payload'], True, job['id'])

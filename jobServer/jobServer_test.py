@@ -6,7 +6,8 @@ import time
 config = json.load(open('../config.json'))
 redis_config = json.load(open('config.json'))
 
-base_url = 'http://127.0.0.1:5000/'
+# base_url = 'http://127.0.0.1:5000/'
+base_url = 'http://jobserver.drosen.me/'
 
 def redis_get(url):
     r = requests.get(base_url + url.lstrip('/'),
@@ -15,6 +16,12 @@ def redis_get(url):
 
 def redis_put(url, json=None):
     r = requests.put(base_url + url.lstrip('/'),
+                     auth=('daniel', redis_config['redis_auth_key']),
+                     json=json)
+    return r
+
+def redis_post(url, json=None):
+    r = requests.post(base_url + url.lstrip('/'),
                      auth=('daniel', redis_config['redis_auth_key']),
                      json=json)
     return r
@@ -31,13 +38,12 @@ def redis_put(url, json=None):
 # complete (empty[*], items[*])
 # timeout (no items running[*], items running[*])
 def main():
-    print("empty timeout test: sleeping for {} seconds".format(redis_config['job_timeout'] + 30))
-    time.sleep(redis_config['job_timeout'] + 30)
-
     print("push test")
     for i in range(3):
-        if redis_put('queue/test/push', {'payload': i}).status_code != 200:
+        r = redis_put('queue/test/push', json={'payload': i})
+        if r.status_code != 200:
             print("push error at {}".format(i))
+        print(r.text)
 
     print("list test")
     r = redis_get('queue/test/list')
@@ -110,7 +116,7 @@ def main():
 
     r = redis_get('queue/test/size')
     if r.status_code != 200:
-        print("len error")
+        print("size error")
     print(r.json())
 
     print("timeout test: sleeping for {} seconds".format(redis_config['job_timeout'] + 30))
@@ -129,7 +135,7 @@ def main():
     # then empty with complete
     print("empty ping test")
     r = redis_put('job/1/ping')
-    if r.status_code != 404:
+    if r.status_code == 404:
         print("ping error")
     print(r.text)
     print("ping test: sleeping for {} seconds".format(redis_config['job_timeout']))
@@ -154,7 +160,7 @@ def main():
     print("empty complete test")
     r = redis_get('queue/test/size')
     if r.status_code != 200:
-        print("len error")
+        print("size error")
     print(r.json())
 
     r = redis_put('job/0/complete')

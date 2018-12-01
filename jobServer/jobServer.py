@@ -50,7 +50,6 @@ def requires_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# curl -X PUT -H "Content-Type:application/json" -d '{"payload":"hello","queue":"test","priority":False}' localhost:5000/proj/exp/add
 @app.route('/queue/<queue_name>/push', methods=['PUT'])
 @requires_auth
 def push_job(queue_name):
@@ -90,7 +89,7 @@ def get_queue_size(queue_name):
 @requires_auth
 def ping_job(job_id):
     if not redisUtils.ping_job(job_id):
-        return Response('requested job does not exist.', status=404)
+        return Response('Requested job does not exist.', status=404)
     return Response('PONG', status=200)
 
 @app.route('/job/<int:job_id>/requeue', methods=['PUT'])
