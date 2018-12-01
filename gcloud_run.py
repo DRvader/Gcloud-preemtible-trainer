@@ -151,7 +151,6 @@ if __name__ == '__main__':
                                     env=os.environ.copy(), see_output=[True, True])
         print(process[1])
     else:
-        print("Submitting to Queue")
         r = requests.put('{}/queue/tf-trainer-preemptible/push'.format(config['job_queue_address'],
                          data={'payload':'/'.join([results.project_name, results.experiment_name, version_number])},
                          headers={'auth_key': redis_config['redis_auth_key']}))

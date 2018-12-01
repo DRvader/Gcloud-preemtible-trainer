@@ -4,8 +4,7 @@ sudo apt install -y python3-pip python3-dev build-essential libssl-dev libffi-de
 sudo add-apt-repository ppa:certbot/certbot
 sudo apt -y install python-certbot-nginx
 
-mkdir -p /home/redis
-mkdir /home/redis/jobServer
+mkdir -p /home/redis/jobServer
 cd /home/redis/jobServer
 python3 -m venv jobServerEnv
 source jobServerEnv/bin/activate
@@ -13,9 +12,7 @@ pip install wheel
 pip install gunicorn flask redis
 deactivate
 
-gsutil cp gs://job-storage/jobServer/redis.conf /home/redis/jobServer/redis.conf
-gsutil cp gs://job-storage/jobServer/jobServer.py /home/redis/jobServer/jobServer.py
-gsutil cp gs://job-storage/jobServer/config.json /home/redis/jobServer/config.json
+gsutil cp gs://job-storage/jobServer/* /home/redis/jobServer/
 redis-server /home/redis/jobServer/redis.conf
 
 sudo cat > /etc/systemd/system/jobServer.service << EOL
@@ -28,7 +25,7 @@ User=redis
 Group=www-data
 WorkingDirectory=/home/redis/jobServer/
 Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
-ExecStart=/home/redis/jobServer/jobServerEnv/bin/gunicorn --bind unix:/tmp/jobServer.sock jobServer:app
+ExecStart=/home/redis/jobServer/jobServerEnv/bin/gunicorn --bind unix:/tmp/jobServer.sock jobServer_deploy:app
 
 [Install]
 WantedBy=multi-user.target
@@ -37,9 +34,29 @@ EOL
 sudo systemctl start jobServer
 sudo systemctl enable jobServer
 
+sudo cat > /etc/systemd/system/jobServerHeartbeat.service << EOL
+[Unit]
+Description=Infinite process to re-add jobs whose workers have stopped responding.
+After=network.target jobServer.service
+
+[Service]
+User=redis
+Group=www-data
+WorkingDirectory=/home/redis/jobServer/
+Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
+ExecStart=python jobServer_checkHeartbeat.py
+
+[Install]
+WantedBy=multi-user.target
+EOL
+
+sudo systemctl start jobServerHeartbeat
+sudo systemctl enable jobServerHeartbeat
+
 sudo cat > /etc/nginx/sites-available/jobServer << EOL
 server {
     listen 80;
+    listen 443 default_server ssl;
     server_name jobserver.drosen.me;
 
     location / {

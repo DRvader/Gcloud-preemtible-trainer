@@ -1,10 +1,7 @@
-import flask
 from flask import Flask, jsonify, request, Response
 from functools import wraps
+import jobServer_redisUtils as redisUtils
 import json
-import redis
-import sched
-import time
 
 # The redis server sits on a webserver. It can be any connected server but it
 # means that jobs can be grabbed without needing redis specific software at any point.
@@ -20,49 +17,16 @@ import time
 # The workers have 10 minutes to ping the webserver or the job will be considered imcomplete and be requeued.
 # The worker can also call re_add on a job to requeue it in the case of a recoverable failure.
 
+# TODO(daniel): add support for marking a job that hasn't yet run as complete
+
+# Every queue contains a list of jobs, the data that each job holds is held in a map
+# and all running jobs are put in a single list
+
+# If a job is not found the job map then it is assumed that it has been completed.
+
 app = Flask(__name__)
-db = redis.Redis('localhost') #connect to server
 config = json.load(open('config.json'))
-s = sched.scheduler(time.time, time.sleep)
-
-if db.exists('job_id') == 0:
-    db.set('job_id', 0)
-
-def refresh_config():
-    global config
-    config = json.load(open(config.json))
-
-def add_job(queue_name, payload, priority, job_id=None):
-    if job_id is None:
-        job_id = db.get('job_id')
-        db.incr('job_id')
-
-    if not queue_name.startswith('queue:'):
-        queue_name = 'queue:' + queue_name
-
-    if priority:
-        db.rpush(queue_name, job_id)
-    else:
-        db.lpush(queue_name, job_id)
-    db.incr('size:' + queue_name)
-
-    job = json.dumps({'payload':payload, 'id':job_id.decode(), 'queue': queue_name})
-    db.hset('reserved:job_map', job_id, job)
-
-def readd_job(job_id):
-    job = db.hget('reserved:job_map', job_id)
-    db.rem('reserved:running', job_id)
-    add_job(job['queue'], job['payload'], True, job['id'])
-
-def check_heartbeat_status():
-    unresponsive_jobs = db.diff('reserved:running', 'reserved:heartbeat')
-    for job_id in unresponsive_jobs:
-        job = db.hget('reserved:job_map', job_id)
-        db.rem('reserved:running', job_id)
-        add_job(job['queue'], job['payload'], True, job['id'])
-    s.enter(600, 1, check_heartbeat_status)
-
-s.enter(600, 1, check_heartbeat_status)
+db = redisUtils.db
 
 def check_auth(username, password):
     """This function is called to check if a username /
@@ -89,86 +53,58 @@ def requires_auth(f):
 # curl -X PUT -H "Content-Type:application/json" -d '{"payload":"hello","queue":"test","priority":False}' localhost:5000/proj/exp/add
 @app.route('/queue/<queue_name>/push', methods=['PUT'])
 @requires_auth
-def add_job_from_API(queue_name):
+def push_job(queue_name):
     job = request.get_json()
-    print(job)
+
     if 'payload' not in job:
         return Response('A payload for the queue must be passed in.', status=400)
 
     payload = job['payload']
     priority = job['priority'] if 'priority' in job else False
 
-    add_job(queue_name, payload, priority)
+    redisUtils.add_to_queue(queue_name, payload, priority)
 
     return Response('Added job to queue', status=200)
 
-@app.route('/job/<int:job_id>/requeue', methods=['PUT'])
-@requires_auth
-def requeue_job(job_id):
-    readd_job(job_id)
-    return Response('Readded job to queue', status=200)
-
 @app.route('/queue/<queue_name>/pop', methods=['GET'])
 @requires_auth
-def get_jobs(queue_name):
-    if not queue_name.startswith('queue:'):
-        queue_name = 'queue:' + queue_name
-
-    if not db.exists(queue_name):
+def pop_job(queue_name):
+    job = redisUtils.pop_queue(queue_name)
+    if job is None:
         return Response('Queue Empty', status=404)
-
-    job_id = db.brpop(queue_name)[1].decode()
-    job = json.loads(db.hget('reserved:job_map', job_id))
-
-    db.sadd('reserved:running', job_id)
     return jsonify(job)
 
 @app.route('/queue/<queue_name>/list', methods=['GET'])
 def get_queue(queue_name):
-    if not queue_name.startswith('queue:'):
-        queue_name = 'queue:' + queue_name
-
-    return jsonify(json.loads(db.lrange(queue_name, 0, -1)))
+    return jsonify(redisUtils.list_queue(queue_name))
 
 @app.route('/queue/<queue_name>/len', methods=['GET'])
 def get_queue_length(queue_name):
-    if not queue_name.startswith('queue:'):
-        queue_name = 'queue:' + queue_name
-
-    return jsonify({'len': len(db.lrange(queue_name, 0, -1))})
+    return jsonify({'len': len(redisUtils.list_queue(queue_name))})
 
 @app.route('/queue/<queue_name>/size', methods=['GET'])
 def get_queue_size(queue_name):
-    if not queue_name.startswith('queue:'):
-        queue_name = 'queue:' + queue_name
-
-    queue_size_name = 'size:' + queue_name
-
-    return jsonify({'size': db.get(queue_size_name)})
+    return jsonify({'size': redisUtils.queue_size(queue_name)})
 
 @app.route('/job/<int:job_id>/ping', methods=['PUT'])
 @requires_auth
 def ping_job(job_id):
-    if db.exists('reserved:job_map', job_id) == 0:
+    if not redisUtils.ping_job(job_id):
         return Response('requested job does not exist.', status=404)
-
-    db.sadd('reserved:heartbeat', job_id)
-
     return Response('PONG', status=200)
+
+@app.route('/job/<int:job_id>/requeue', methods=['PUT'])
+@requires_auth
+def requeue_job(job_id):
+    redisUtils.readd_to_queue(job_id)
+    return Response('Readded job to queue', status=200)
 
 @app.route('/job/<int:job_id>/complete', methods=['PUT'])
 @requires_auth
 def complete_job(job_id):
-    if db.exists('reserved:job_map', job_id) == 0:
-        return Response('requested job does not exist.', status=404)
-
-    job = db.hget('reserved:job_map', job_id)
-    db.hrem('reserved:job_map', job_id)
-    db.srem('reserved:running', job_id)
-
-    db.incrby('size:' + job['queue'], -1)
-
+    if not redisUtils.complete_job(job_id):
+        return Response('Requested job does not exist.', status=404)
     return Response(status=200)
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
