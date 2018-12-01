@@ -44,7 +44,7 @@ User=redis
 Group=www-data
 WorkingDirectory=/home/redis/jobServer/
 Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
-ExecStart=python jobServer_checkHeartbeat.py
+ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/jobServer_checkHeartbeat.py
 
 [Install]
 WantedBy=multi-user.target

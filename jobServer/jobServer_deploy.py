@@ -1,4 +1,4 @@
-import jobServer
+from jobServer import app
 
 if __name__ == '__main__':
-    jobServer.app.run()
+    app.run()
