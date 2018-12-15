@@ -99,3 +99,9 @@ EOL
 
 systemctl start certRenew.timer
 systemctl enable certRenew.timer
+
+curl -sSO https://dl.google.com/cloudagents/install-monitoring-agent.sh
+bash install-monitoring-agent.sh
+
+curl -sSO https://dl.google.com/cloudagents/install-logging-agent.sh
+bash install-logging-agent.sh

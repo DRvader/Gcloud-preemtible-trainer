@@ -98,7 +98,7 @@ def run_python_script(main_module, code_location, arguments=[], packages=[], env
     package_process = None
     if len(packages) > 0:
         args = ['python', '-m', 'pip', 'install', '--upgrade',
-                '--ignore-installed', '--target', '~/packages'] + pip_packages
+                '--ignore-installed', '--target', '~/packages'] + packages
 
         if use_files[0]:
             stdout = "~/package_install.stdout"
@@ -218,7 +218,6 @@ def handle_message(message):
     teardown_job(message, job_ref)
 
 if __name__ == '__main__':
-    client = pubsub.SubscriberClient()
     while True:
         for queue in config['worker_queues']:
             response = requests.put('{}/queue/{}/pop'.format(config['job_queue_address'], queue),

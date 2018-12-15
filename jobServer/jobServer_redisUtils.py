@@ -26,10 +26,10 @@ def refresh_config():
 
 def add_to_queue(queue_name, payload, high_priority, job_id=None):
     if job_id is None:
-        job_id = db.get('job_id')
+        job_id = db.get('reserved:job_id')
         if job_id is None:
             job_id = '0'
-        db.incr('job_id')
+        db.incr('reserved:job_id')
 
     job_id = convert_bytesToString(job_id)
     queue_name = convert_bytesToString(queue_name)
@@ -41,7 +41,7 @@ def add_to_queue(queue_name, payload, high_priority, job_id=None):
         db.rpush(queue_name, job_id)
     else:
         db.lpush(queue_name, job_id)
-    db.incr('size:' + queue_name)
+    db.hincrby('reserved:size', queue_name, 1)
 
     job = json.dumps({'payload':payload, 'id':job_id, 'queue': queue_name})
     db.hset('reserved:job_map', job_id, job)
@@ -49,7 +49,7 @@ def add_to_queue(queue_name, payload, high_priority, job_id=None):
 def readd_to_queue(job_id):
     job = json.loads(convert_bytesToString(db.hget('reserved:job_map', job_id)))
     db.srem('reserved:running', job_id)
-    db.incrby('size:' + job['queue'], -1) # it will immediatly incremented
+    db.hincrby('reserved:size', job['queue'], -1) # it will immediatly incremented
     add_to_queue(job['queue'], job['payload'], True, job['id'])
 
 def pop_queue(queue_name):
@@ -83,11 +83,10 @@ def queue_size(queue_name):
     if not queue_name.startswith('queue:'):
         queue_name = 'queue:' + queue_name
 
-    queue_size_name = 'size:' + queue_name
-    if not db.exists(queue_size_name):
+    if db.hexists('reserved:size', queue_name) == 0:
         return 0
 
-    return convert_bytesToString(db.get(queue_size_name))
+    return convert_bytesToString(db.hget('reserved:size', queue_name))
 
 def ping_job(job_id):
     if db.hexists('reserved:job_map', job_id) == 0:
@@ -104,6 +103,6 @@ def complete_job(job_id):
     db.hdel('reserved:job_map', job_id)
     db.srem('reserved:running', job_id)
 
-    db.incrby('size:' + job['queue'], -1)
+    db.hincrby('reserved:size', job['queue'], -1)
 
     return True
