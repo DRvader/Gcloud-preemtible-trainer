@@ -1,5 +1,5 @@
 from google.cloud import monitoring_v3
-import jobServer_redisUtils as redisUtils
+import redisUtils
 import json
 import redis
 import time

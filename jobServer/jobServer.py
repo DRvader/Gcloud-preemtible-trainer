@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, Response
 from functools import wraps
-import jobServer_redisUtils as redisUtils
+import redisUtils
 import json
 
 # The redis server sits on a webserver. It can be any connected server but it

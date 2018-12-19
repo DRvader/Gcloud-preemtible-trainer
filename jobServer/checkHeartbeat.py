@@ -1,4 +1,4 @@
-from jobServer_redisUtils import db, readd_to_queue, convert_bytesToString
+from redisUtils import db, readd_to_queue, convert_bytesToString
 import json
 import time
 import sys

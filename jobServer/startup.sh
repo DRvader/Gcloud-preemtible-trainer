@@ -28,7 +28,7 @@ User=redis
 Group=www-data
 WorkingDirectory=/home/redis/jobServer/
 Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
-ExecStart=/home/redis/jobServer/jobServerEnv/bin/gunicorn --bind unix:/tmp/jobServer.sock jobServer_deploy:app --log-file /home/redis/logs/gunicorn.log --log-level DEBUG
+ExecStart=/home/redis/jobServer/jobServerEnv/bin/gunicorn --bind unix:/tmp/jobServer.sock deploy:app --log-file /home/redis/logs/gunicorn.log --log-level DEBUG
 
 [Install]
 WantedBy=multi-user.target
@@ -47,7 +47,7 @@ User=redis
 Group=www-data
 WorkingDirectory=/home/redis/jobServer/
 Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
-ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/jobServer_checkHeartbeat.py
+ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/checkHeartbeat.py
 
 [Install]
 WantedBy=multi-user.target
@@ -77,7 +77,7 @@ Description=Update stack driver metrics for queue size.
 [Service]
 WorkingDirectory=/home/redis/jobServer/
 Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
-ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/jobServer_stackDriverMetrics.py
+ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/stackDriverMetrics.py
 EOL
 
 systemctl start stackDriverMetrics.timer
