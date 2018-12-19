@@ -56,6 +56,33 @@ EOL
 systemctl start jobServerHeartbeat
 systemctl enable jobServerHeartbeat
 
+
+cat > /etc/systemd/system/stackDriverMetrics.timer << EOL
+[Unit]
+Description=Timer to update stack driver metrics for queue size.
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60
+RandomizedDelaySec=10
+
+[Install]
+WantedBy=timers.target
+EOL
+
+cat > /etc/systemd/system/stackDriverMetrics.service << EOL
+[Unit]
+Description=Update stack driver metrics for queue size.
+
+[Service]
+WorkingDirectory=/home/redis/jobServer/
+Environment="PATH=/home/redis/jobServer/jobServerEnv/bin"
+ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/jobServer_stackDriverMetrics.py
+EOL
+
+systemctl start stackDriverMetrics.timer
+systemctl enable stackDriverMetrics.timer
+
 cat > /etc/nginx/sites-available/jobServer << EOL
 server {
     listen 80;
