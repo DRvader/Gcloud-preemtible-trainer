@@ -56,7 +56,6 @@ EOL
 systemctl start jobServerHeartbeat
 systemctl enable jobServerHeartbeat
 
-
 cat > /etc/systemd/system/stackDriverMetrics.timer << EOL
 [Unit]
 Description=Timer to update stack driver metrics for queue size.

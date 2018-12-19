@@ -6,8 +6,8 @@ import time
 config = json.load(open('../config.json'))
 redis_config = json.load(open('config.json'))
 
-# base_url = 'http://127.0.0.1:5000/'
-base_url = 'http://jobserver.drosen.me/'
+base_url = 'http://127.0.0.1:5000/'
+# base_url = 'http://jobserver.drosen.me/'
 
 def redis_get(url):
     r = requests.get(base_url + url.lstrip('/'),

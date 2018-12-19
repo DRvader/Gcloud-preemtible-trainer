@@ -5,6 +5,7 @@ import redis
 import time
 
 config = json.load(open('config.json'))
+db = redisUtils.db
 
 client = monitoring_v3.MetricServiceClient()
 project_name = client.project_path(config['monitoring_project_id'])
@@ -28,16 +29,18 @@ def create_point(path, value):
     # series_point.resource.labels['instance_id'] = instance_id
     # series_point.resource.labels['zone'] = instance_zone
     point = series_point.points.add()
-    point.value.value = value
+    point.value.int64_value = value
     now = time.time()
     point.interval.end_time.seconds = int(now)
     point.interval.end_time.nanos = int((now - point.interval.end_time.seconds) * 10**9)
 
+    return series_point
+
 points = []
-size = db.hgetall('reserved:size')
-if len(size) > 1:
-    for k,v in zip(size[::2], size[1::2]):
-        points.append(create_point('queue/{}'.format(k), v))
+size = redisUtils.convert_bytesToString(db.hgetall('reserved:size'))
+for k,v in size.items():
+    points.append(create_point('queue/{}'.format(k.split(':')[-1]), int(v)))
 
 if len(points) > 0:
+    print("pushed {} points".format(len(points)))
     client.create_time_series(project_name, points)
