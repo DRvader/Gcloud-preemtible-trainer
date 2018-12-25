@@ -84,7 +84,7 @@ def queue_size(queue_name):
         queue_name = 'queue:' + queue_name
 
     if db.hexists('reserved:size', queue_name) == 0:
-        return 0
+        return convert_bytesToString(0)
 
     return convert_bytesToString(db.hget('reserved:size', queue_name))
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 apt update
-apt install -y python3-pip python3-dev build-essential libssl-dev libffi-dev python3-setuptools python3-venv redis-server
+apt install -y python3-pip python3-dev build-essential libssl-dev libffi-dev python3-setuptools python3-venv redis-server jq
 add-apt-repository ppa:certbot/certbot
 apt -y install python-certbot-nginx
 
@@ -10,7 +10,7 @@ cd /home/redis/jobServer
 python3 -m venv jobServerEnv
 source jobServerEnv/bin/activate
 pip install wheel
-pip install gunicorn flask redis
+pip install gunicorn flask redis google-cloud-monitoring
 deactivate
 
 chown redis -R /home/redis/
@@ -39,7 +39,7 @@ systemctl enable jobServer
 
 cat > /etc/systemd/system/jobServerHeartbeat.service << EOL
 [Unit]
-Description=Infinite process to re-add jobs whose workers have stopped responding.
+Description=Re-add jobs whose workers have stopped responding.
 After=network.target jobServer.service
 
 [Service]
@@ -53,8 +53,23 @@ ExecStart=/home/redis/jobServer/jobServerEnv/bin/python /home/redis/jobServer/ch
 WantedBy=multi-user.target
 EOL
 
-systemctl start jobServerHeartbeat
-systemctl enable jobServerHeartbeat
+heartbeatDelay=$(cat config.json | jq '.job_timeout')
+
+cat > /etc/systemd/system/jobServerHeartbeat.timer << EOL
+[Unit]
+Description=Timer to run check heartbeat service.
+
+[Timer]
+OnBootSec=${heartbeatDelay}
+OnUnitActiveSec=${heartbeatDelay}
+RandomizedDelaySec=10
+
+[Install]
+WantedBy=timers.target
+EOL
+
+systemctl start jobServerHeartbeat.timer
+systemctl enable jobServerHeartbeat.timer
 
 cat > /etc/systemd/system/stackDriverMetrics.timer << EOL
 [Unit]

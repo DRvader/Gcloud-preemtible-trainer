@@ -36,11 +36,12 @@ def create_point(path, value):
 
     return series_point
 
-points = []
-size = redisUtils.convert_bytesToString(db.hgetall('reserved:size'))
-for k,v in size.items():
-    points.append(create_point('queue/{}'.format(k.split(':')[-1]), int(v)))
+if __name__ == '__main__':
+    points = []
+    size = redisUtils.convert_bytesToString(db.hgetall('reserved:size'))
+    for k,v in size.items():
+        points.append(create_point('queue/{}'.format(k.split(':')[-1]), int(v)))
 
-if len(points) > 0:
-    print("pushed {} points".format(len(points)))
-    client.create_time_series(project_name, points)
+    if len(points) > 0:
+        print("pushed {} points".format(len(points)))
+        client.create_time_series(project_name, points)

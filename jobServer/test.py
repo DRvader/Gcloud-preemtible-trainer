@@ -6,8 +6,8 @@ import time
 config = json.load(open('../config.json'))
 redis_config = json.load(open('config.json'))
 
-base_url = 'http://127.0.0.1:5000/'
-# base_url = 'http://jobserver.drosen.me/'
+# base_url = 'http://127.0.0.1:5000/'
+base_url = 'https://jobserver.drosen.me/'
 
 def redis_get(url):
     r = requests.get(base_url + url.lstrip('/'),
@@ -128,23 +128,31 @@ def main():
 
     r = redis_get('queue/test/size')
     if r.status_code != 200:
-        print("len error")
+        print("size error")
     print(r.json())
+
+    r = redis_get('/queue/test/pop')
+    if r.status_code != 200:
+        print("pop error")
+    ping_test = r.json()['id']
 
     # ping, make sure it wasn't placed back on.
     # then empty with complete
-    print("empty ping test")
-    r = redis_put('job/1/ping')
+    print("ping test for job {}".format(ping_test))
+    r = redis_put('job/{}/ping'.format(ping_test))
     if r.status_code == 404:
         print("ping error")
     print(r.text)
-    print("ping test: sleeping for {} seconds".format(redis_config['job_timeout']))
+    print("ping test: sleeping for {} seconds".format(redis_config['job_timeout']//2))
+    time.sleep(redis_config['job_timeout']//2)
 
     print("list test")
     r = redis_get('queue/test/list')
     if r.status_code != 200:
         print("list test error")
     print(r.json())
+
+    redis_put('/job/{}/complete'.format(ping_test))
 
     print("emptying queue")
     status = 200
